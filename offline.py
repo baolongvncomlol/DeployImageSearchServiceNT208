@@ -1,0 +1,66 @@
+from PIL import Image
+from feature_extractor import FeatureExtractor
+from pathlib import Path
+import numpy as np
+import os
+from pymongo import MongoClient
+import requests
+
+# Connect to MongoDB
+client = MongoClient("mongodb+srv://baolongvncom:baolong123456@cluster0.0vgsjr7.mongodb.net")
+db = client["WatchShop"]
+collection = db["watches"]
+
+watches = collection.find()
+
+    
+def train():
+    fe = FeatureExtractor()
+
+    for watch in watches:
+        try:
+            img_path = watch['image']
+            print(img_path)  # e.g., ./static/img/xxx.png
+            feature = fe.extract(img=Image.open(requests.get("https://deploynt208backend.onrender.com" + img_path, stream=True).raw))
+
+            # Tạo đường dẫn đến thư mục static/feature
+            feature_dir = Path("static/feature")
+
+            img_path = img_path.split('/')[-1]
+
+            img_path = img_path.split('.')[0]
+
+            # Tạo đường dẫn cho file feature
+            feature_path = feature_dir / (img_path + ".npy")
+
+            print(feature_path)
+
+            # Tạo thư mục nếu nó chưa tồn tại
+            feature_dir.mkdir(parents=True, exist_ok=True)
+
+            # Ghi đè feature lên file nếu nó đã tồn tại, hoặc tạo mới nếu chưa có
+            np.save(feature_path, feature)
+        except:
+            continue
+
+def train_image(image_filename):
+
+    print(image_filename)
+
+    image_path = "/images/" + image_filename
+
+    try:
+        fe = FeatureExtractor()
+        feature = fe.extract(img=Image.open(requests.get("https://deploynt208backend.onrender.com" + image_path, stream=True).raw))
+        feature_dir = Path("static/feature")
+        feature_path = feature_dir / (image_filename.split('.')[0] + ".npy")
+        feature_dir.mkdir(parents=True, exist_ok=True)
+        np.save(feature_path, feature)
+        print("Train_image success")
+        return {"status": "success", "feature_path": feature_path}
+    
+    except:
+        print("Train_image fail")
+        return {"status": "fail"}
+if __name__ == "__main__":
+    train()
